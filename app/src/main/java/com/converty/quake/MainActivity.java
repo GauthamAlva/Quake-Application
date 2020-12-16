@@ -10,13 +10,17 @@ import androidx.loader.content.Loader;
 import android.app.usage.UsageEvents;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -34,15 +38,32 @@ import static com.converty.quake.QueryUtils.LOG_TAG;
 
 
 public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<List<mag>> {
-    public static final String USGS_REQUEST_URL =
-            "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&minmag=4&limit=10";
+    private static final String USGS_REQUEST_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query";
     private static final int EARTHQUAKE_LOADER_ID = 1;
     private masadapter adapter = null;
     private ListView list = null;
 private TextView  mEmptyStateTextView;
 private ProgressBar cyclicprogress;
     private TextView  connection;
+//methods to show the options on the task bar and to click a particular option on the taskbar
+    //using prefarencefragments
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main,menu);
+        return true;
+    }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_settings) {
+            Intent settingsIntent = new Intent(this, Settiingclass.class);
+            startActivity(settingsIntent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+//----------------------------------------------------------------------------
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,6 +71,7 @@ private ProgressBar cyclicprogress;
         Log.i(LOG_TAG,"called oncreate() method");
         ConnectivityManager cm=(ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
         NetworkInfo info=cm.getActiveNetworkInfo();
+
         boolean isConnected = info != null &&
                 info.isConnectedOrConnecting();
         connection=(TextView)findViewById(R.id.internet);
@@ -80,11 +102,29 @@ private ProgressBar cyclicprogress;
 
     }
 
-    @NonNull
+
     @Override
-    public Loader<List<mag>> onCreateLoader(int id, @Nullable Bundle args) {
+    public Loader<List<mag>> onCreateLoader(int id,  Bundle args) {
         Log.i(LOG_TAG,"oncreate loader running ...");
-        return new Eartthquakeasync(MainActivity.this, USGS_REQUEST_URL);
+        SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        String minMagnitude = sharedPrefs.getString(
+                getString(R.string.settings_min_magnitude_key),
+                getString(R.string.settings_min_magnitude_default));
+
+        String orderBy = sharedPrefs.getString(
+                getString(R.string.settings_order_by_key),
+                getString(R.string.settings_order_by_default)
+        );
+
+        Uri baseUri = Uri.parse(USGS_REQUEST_URL);
+        Uri.Builder uriBuilder = baseUri.buildUpon();
+
+        uriBuilder.appendQueryParameter("format", "geojson");
+        uriBuilder.appendQueryParameter("limit", "10");
+        uriBuilder.appendQueryParameter("minmag", minMagnitude);
+        uriBuilder.appendQueryParameter("orderby", orderBy);
+
+        return new Eartthquakeasync(this, uriBuilder.toString());
     }
 
     @Override
